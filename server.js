@@ -1,27 +1,21 @@
 const express = require("express");
 const cors = require('cors');
 const bodyParser = require("body-parser");
-
 const app = express();
 
-const PORT = 8080;
-const db = require('./queries');
-const sqlite = require('./sqlite');
-const rest = require('./restClient');
-
+// Middleware to parse JSON request bodies
 app.use(bodyParser.json());
 app.use(cors());
 app.use(express.urlencoded({ extended: false }));
 
-app.get("/", (request, response) => {
-    response.json({
-        info: 'Hello world!'
-    });
-});
+// Your routes here
+const routes = require('./routes');
 
-app.get('/books', sqlite.getBooks);
-app.get('/books/:isbn', rest.findBookByISBN);
+// Use the routes defined in routes.js
+app.use('/api', routes);
 
+// Start the server
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}.`);
 });

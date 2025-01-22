@@ -1,48 +1,54 @@
 const sqlite3 = require('sqlite3').verbose();
-let sql;
+const { validationResult } = require('express-validator');
 
-const db = new sqlite3.Database('./lib.db',sqlite3.OPEN_READWRITE, (err) => {
-    if(err) return console.error(err.message);
+const db = new sqlite3.Database('./lib.db', sqlite3.OPEN_READWRITE, (err) => {
+    if (err) return console.error(err.message);
 });
 
-const getBooks = (req, res) => {
-    let response = {};
-    sql = 'SELECT * FROM books ORDER BY id ASC';
-    db.all(sql,(err, rows) => {
-        try {
+const getBooks = () => {
+    return new Promise((resolve, reject) => {
+        const sql = 'SELECT * FROM books ORDER BY id ASC';
+        db.all(sql, (err, rows) => {
             if (err) {
-                throw err;
-            } else {
-                response.status = true;
-                response.code = 200;
-                response.message = 'Success';
-                response.data = rows;
-
-                res.status(200).json(response);
+                return reject(err);
             }
-        } catch (error) {
-            console.log(error);
-            res.status(500).json('Internal Server Error');
-        }
+            resolve(rows);
+        });
     });
-}
+};
 
-async function insertBook(req) {
-    console.log(req);
-    let now = new Date(Date.now());
-    sql = `INSERT INTO books (booktitle, author, yearpublished, isbn, genre, series, datecreated) 
-    VALUES ('${req.bookTitle.replace("'","''") || ""}','${req.author || ""}','${req.yearPublished || ""}','${req.isbn || ""}','${req.genre || ""}','${req.series || ""}','${now.toISOString()}')`;
-    db.run(sql, (err, rows) => {
-        if (err) {
-            console.log('error occured: ' + err.message);
-            return err;
-        } else {
-            return rows;
+const insertBookToDB = (bookDtls) => {
+    return new Promise((resolve, reject) => {
+        const errors = validationResult(bookDtls);
+        if (!errors.isEmpty()) {
+            return reject({ status: 'SUCCESS', code: 400, message: 'Bad Request', errors: errors.array() });
+        }
+
+        try {
+            const { bookTitle, author, yearPublished, isbn, genre, series } = bookDtls;
+            if (!bookTitle || !author || !yearPublished || !isbn) {
+                return reject({ status: 'FAILED', code: 400, message: 'Missing required fields' });
+            }
+            const seriesStr = Array.isArray(series) ? series.join(', ') : series;
+            const now = new Date(Date.now());
+            const sql = `INSERT INTO books (booktitle, author, yearpublished, isbn, genre, series, datecreated) 
+                         VALUES (?, ?, ?, ?, ?, ?, ?)`;
+            const params = [bookTitle, author, yearPublished, isbn, genre, seriesStr, now.toISOString()];
+
+            db.run(sql, params, function (err) {
+                if (err) {
+                    return reject({ status: 'FAILED', code: 500, message: 'Internal Server Error' });
+                }
+                resolve({ status: 'SUCCESS', code: 201, message: 'Book inserted successfully', data: { id: this.lastID } });
+            });
+        } catch (error) {
+            console.error(error);
+            reject({ status: 'FAILED', code: 500, message: 'Internal Server Error' });
         }
     });
-}
+};
 
 module.exports = {
     getBooks,
-    insertBook
-}
+    insertBookToDB
+};
