@@ -36,7 +36,7 @@ const findBookByISBN = (isbn) => {
                 }
                 const bookDtls = {
                     bookTitle: response.data.title,
-                    author: author.name || "",
+                    author: author.data.name || "",
                     yearPublished: response.data.publish_date.substring(response.data.publish_date.length - 4),
                     isbn: response.data.isbn_13 ? response.data.isbn_13[0] : isbn,
                     genre: response.data.genre || "",
